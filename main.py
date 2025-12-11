@@ -1,91 +1,162 @@
+import tkinter as tk
+from tkinter import messagebox
 import pyautogui
 import cv2
 import numpy as np
-import keyboard
 import time
-import os
+import threading
+import keyboard
 
-# ======================
-# CONFIG
-# ======================
-STEPS = [
-    ("images/giodo.png"),
-    ("images/quayve.png")
+# ============================
+#  DANH SÁCH ẢNH CẦN CLICK
+# ============================
+IMAGE_SEQUENCE = [
+    "images/giodo.png",     # Giỏ đồ
+    "images/quayve.png",    # Quay về
 ]
 
-DELAY_AFTER_CLICK = 0.3     # thời gian sau khi click
-DELAY_RETRY = 0.5           # thời gian chờ khi chưa tìm thấy ảnh (giảm tải CPU)
-CONFIDENCE = 0.8            # độ chính xác nhận diện ảnh
+running = False  # trạng thái chạy
 
 
-# ======================
-# FIND IMAGE
-# ======================
-def find_image(path):
+# ============================
+#  TÌM & CLICK ẢNH
+# ============================
+def find_and_click(image_path, threshold=0.8):
     try:
-        screen = pyautogui.screenshot()
-        screen = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
+        screenshot = pyautogui.screenshot()
+        screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
 
-        template = cv2.imread(path, cv2.IMREAD_COLOR)
+        template = cv2.imread(image_path, cv2.IMREAD_COLOR)
         if template is None:
-            print(f"[ERROR] Không load được ảnh: {path}")
-            return None
+            print(f"[ERROR] Missing file: {image_path}")
+            return False
 
-        res = cv2.matchTemplate(screen, template, cv2.TM_CCOEFF_NORMED)
-        loc = np.where(res >= CONFIDENCE)
+        result = cv2.matchTemplate(screenshot, template, cv2.TM_CCOEFF_NORMED)
+        loc = np.where(result >= threshold)
+
         for pt in zip(*loc[::-1]):
-            h, w = template.shape[:-1]
-            center_x = pt[0] + w//2
-            center_y = pt[1] + h//2
-            return (center_x, center_y)
+            x = pt[0] + template.shape[1] // 2
+            y = pt[1] + template.shape[0] // 2
+            pyautogui.moveTo(x, y, duration=0.13)
+            pyautogui.click()
+            return True
 
-        return None
+        return False
+
     except:
-        return None
+        return False
 
 
-# ======================
-# MAIN ROUTINE
-# ======================
-def run():
-    print("Nhập số lần lặp quy trình: ")
-    total_loops = int(input("> "))
+# ============================
+#  XỬ LÝ DANH SÁCH ẢNH
+# ============================
+def process_images():
+    for img in IMAGE_SEQUENCE:
 
-    print(f"Chạy {total_loops} vòng. Nhấn ESC để dừng bất kỳ lúc nào.")
-    time.sleep(2)
+        if not running:
+            return False
 
-    loop_count = 0
+        print(f"Searching: {img}")
 
-    while loop_count < total_loops:
-        print(f"\n=== Vòng {loop_count + 1}/{total_loops} ===")
+        while running:
+            found = find_and_click(img)
+            if found:
+                print(f"Clicked: {img}")
+                time.sleep(1)
+                break
 
-        for img in STEPS:
-            print(f"Tìm ảnh: {img} ...")
+            time.sleep(0.4)
 
-            while True:
-                if keyboard.is_pressed("esc"):
-                    print("Đã dừng bằng ESC.")
-                    return
+        if not running:
+            return False
 
-                pos = find_image(img)
-                if pos:
-                    print(f"→ Click {img} tại {pos}")
-                    pyautogui.moveTo(pos[0], pos[1], 0.15)
-                    pyautogui.click()
-                    time.sleep(DELAY_AFTER_CLICK)
-                    break  # sang bước kế tiếp
-                else:
-                    time.sleep(DELAY_RETRY)  # giảm tải CPU + chờ ảnh xuất hiện
-
-        loop_count += 1
-        print(f"Hoàn thành vòng {loop_count}/{total_loops}")
-        time.sleep(0.5)  # nghỉ nhẹ giữa vòng lặp
-
-    print("Đã chạy xong toàn bộ số vòng bạn yêu cầu.")
+    return True
 
 
-# ======================
-# START
-# ======================
-if __name__ == "__main__":
-    run()
+# ============================
+#  CHẠY CHÍNH
+# ============================
+def run_process_loop(total_runs):
+    global running
+
+    count = 0
+
+    while running and count < total_runs:
+        print(f"Run {count + 1}/{total_runs}")
+
+        ok = process_images()
+        if not ok:
+            return
+
+        count += 1
+        time.sleep(1)
+
+    # ============================
+    #  KẾT THÚC → STOP
+    # ============================
+    running = False
+    messagebox.showinfo("Completed", "Mission completed successfully!")
+
+
+# ============================
+#  START
+# ============================
+def start():
+    global running
+
+    if running:
+        return
+
+    try:
+        total = int(entry.get())
+        if total <= 0:
+            raise ValueError
+    except:
+        messagebox.showerror("Error", "Invalid number!")
+        return
+
+    running = True
+
+    threading.Thread(target=run_process_loop, args=(total,), daemon=True).start()
+
+    print("Started. Press ESC to stop.")
+    threading.Thread(target=esc_listener, daemon=True).start()
+
+
+# ============================
+#  STOP
+# ============================
+def stop():
+    global running
+    running = False
+    print("Stopped manually.")
+
+
+# ============================
+#  ESC LISTENER
+# ============================
+def esc_listener():
+    global running
+    while running:
+        if keyboard.is_pressed("esc"):
+            running = False
+            print("Stopped by ESC key.")
+            break
+        time.sleep(0.1)
+
+
+# ============================
+#  UI
+# ============================
+window = tk.Tk()
+window.title("Auto Tool")
+window.geometry("300x200")
+
+tk.Label(window, text="Enter number of runs:", font=("Arial", 12)).pack(pady=10)
+entry = tk.Entry(window, font=("Arial", 12))
+entry.pack()
+
+tk.Button(window, text="Start", font=("Arial", 12), command=start).pack(pady=10)
+tk.Button(window, text="Stop", font=("Arial", 12), command=stop).pack(pady=5)
+
+window.mainloop()
