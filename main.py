@@ -11,8 +11,16 @@ import keyboard
 #  DANH SÁCH ẢNH CẦN CLICK
 # ============================
 IMAGE_SEQUENCE = [
-    "images/like.png",     # Giỏ đồ
-    # "images/quayve.png",    # Quay về
+    "images/hoatdong.png",
+    "images/rongthieng.png",
+    "images/thamgiarongthieng.png",
+    "images/morongthieng.png",
+    "images/nextrongthieng1.png",
+    "images/nextrongthieng2.png",
+    "images/nextrongthieng3.png",
+    "images/treomay.png",
+    "images/ketthucrongthieng.png",
+    "images/dongy.png",
 ]
 
 running = False  # trạng thái chạy
