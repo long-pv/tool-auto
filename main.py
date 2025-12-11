@@ -11,8 +11,8 @@ import keyboard
 #  DANH SÁCH ẢNH CẦN CLICK
 # ============================
 IMAGE_SEQUENCE = [
-    "images/giodo.png",     # Giỏ đồ
-    "images/quayve.png",    # Quay về
+    "images/like.png",     # Giỏ đồ
+    # "images/quayve.png",    # Quay về
 ]
 
 running = False  # trạng thái chạy
